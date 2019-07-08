@@ -6,6 +6,12 @@ Author: Sean Davis, Thomas Carroll
 Maintainer: Sean Davis <seandavi@gmail.com>
 Description: This package contains subsets of real ATAC-Seq datasets and example
   analysis and quality control using Bioconductor tools.
+Depends:
+    ggplot2,
+    GenomicFeatures,
+    GenomicAlignments,
+    heatmaps,
+    dplyr
 License: MIT
 Encoding: UTF-8
 LazyData: true

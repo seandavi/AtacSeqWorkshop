@@ -52,6 +52,10 @@ Buenrostro et al. provide a detailed protocol for performing ATAC-Seq and qualit
 
 ATAC-Seq protocols typically utilize paired-end sequencing protocols. The reads are aligned to the respective _genome_ using `bowtie2`, `BWA`, or other short-read aligner. The result, after appropriate manipulation, often using `samtools`, results in a BAM file. Among other details, the BAM format includes columns for:
 
+```{r bamshot, fig.cap="A BAM file in text form. The output of `samtools view` is the text format of the BAM file (called SAM format). Bioconductor and many other tools use BAM files for input. Note that BAM files also often include an index `.bai` file that enables random access into the file; one can read just a genomic region without having to read the entire file."}
+knitr::include_graphics('imgs/bam_shot.png')
+```
+
 - sequence name (`chr1`)
 - start position (integer)
 - a _CIGAR_ string that describes the alignment in a compact form
@@ -61,17 +65,28 @@ ATAC-Seq protocols typically utilize paired-end sequencing protocols. The reads 
 - the sequence and quality string of the read
 - additional tags that tend to be aligner-specific
 
+
 Duplicate fragments (those with the *same* start and end position of other reads) are marked and likely discarded. Reads that fail to align "properly" are also often excluded from analysis. It is worth noting that most software packages allow simple "marking" of such reads and that there is usually no need to create a special BAM file before proceeding with downstream work. 
 
 After alignment and BAM processing, the workflow can switch to _Bioconductor_. 
 
-## Working with aligned reads
+## Working with sequencing data in Bioconductor
 
-The _Bioconductor_ project includes several infrastructure packages for dealing with ranges (sequence name, start, end, +/- strand) on sequences [@Lawrence2013-he]. 
+The _Bioconductor_ project includes several infrastructure packages for dealing with ranges (sequence name, start, end, +/- strand) on sequences [@Lawrence2013-he] as well as capabilities with working with Fastq files directly [@morgan2016rsamtools].
 
-The `r Biocpkg('GenomicRanges')` package .
+| Package  | Use cases |
+|---|---|
+| `r Biocpkg('Rsamtools')`  | low level access to FASTQ, VCF, SAM, BAM, BCF formats   |
+| `r Biocpkg('GenomicRanges')`  | Container and methods for handling genomic reagions   |
+| `r Biocpkg('GenomicFeatures')`  | Work with transcript databases, gff, gtf and BED formats  |
+| `r Biocpkg('GenomicAlignments')` | Reader for BAM format |
+| `r Biocpkg('rtracklayer')` | import and export multiple UCSC file formats including BigWig and Bed |
 
+Table: Commonly used Bioconductor and their high-level use cases.
 
+As noted in the previous section, the output of an ATAC-Seq experiment is a BAM file. 
+As paired-end sequencing is a commonly-applied approach for ATAC-Seq, the `readGAlignmentPairs` function
+is the appropriate method to use. 
 
 # Data import and quality control
 
@@ -81,7 +96,13 @@ The `r Biocpkg('GenomicRanges')` package .
 library(GenomicAlignments)
 ```
 
-- ScanBamParam
+Reading a paired-end BAM file looks a bit complicated, but the following code will:
+
+1. Read the included BAM file.
+2. Include read pairs only (`isPaired = TRUE`)
+3. Include properly paired reads (`isProperPair = TRUE`)
+4. Include reads with mapping quality >= 1
+5. Add a couple of additional fields, `mapq` (mapping quality) and `isize` (insert size) to the default fields. 
 
 
 ```{r readGreenleaf}
@@ -96,7 +117,12 @@ greenleaf = readGAlignmentPairs(
     what = c("mapq", "isize")))
 ```
 
+*Exercise*: What is the class of `greenleaf`?
+*Exercise*: Use the `GenomicAlignments::first()` accessor to get the first read of the pair as a `GAlignments` object. Save the result as a variable called `gl_first_read`. Use the `mcols` accessor to find the "metadata columns" of `gl_first_read`.
+*Exercise*: How many read pairs map to each chromosome? 
 
+
+We can make plot of the number of reads mapping to each chromosome. 
 
 ```{r}
 library(ggplot2)
@@ -106,6 +132,7 @@ chromCounts = table(seqnames(greenleaf)) %>%
   dplyr::rename(chromosome=Var1, count = Freq)
 ```
 
+To keep things small, the example BAM file includes only chromosomes 21 and 22. 
 
 ```{r plotChromCounts, fig.cap="Reads per chromosome. In our example data, we are using only chromosomes 21 and 22."}
 ggplot(chromCounts, aes(x=chromosome, y=count)) + 
@@ -113,10 +140,15 @@ ggplot(chromCounts, aes(x=chromosome, y=count)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
+Normalizing by the chromosome length can yield the reads per megabase which should crudely be similar across all chromosomes.
+
 ```{r chromReadProps}
 chromCounts = chromCounts %>%
-  dplyr::mutate(readsPerMb = (count/(seqlengths(gl)/1e6)))
+  dplyr::mutate(readsPerMb = (count/(seqlengths(greenleaf)/1e6)))
 ```
+
+
+And show a plot. For two chromosomes, this is a little underwhelming. 
 
 ```{r plotReadProps, fig.cap = "Read counts normalized by chromosome length. This is not a particularly important plot, but it can be useful to see the relative contribution of each chromosome given its length."}
 ggplot(chromCounts, aes(x=chromosome, y=readsPerMb)) + 
@@ -127,10 +159,33 @@ ggplot(chromCounts, aes(x=chromosome, y=readsPerMb)) +
 
 ## Coverage
 
-Histogram of coverage.
+The `coverage` method for genomic ranges calculates, for each base, the number of overlapping features. In the case of a BAM file from ATAC-Seq converted to a GAlignmentPairs object, the coverage gives us an idea of the extent to which reads pile up to form peaks. 
+
+
 
 ```{r}
-cvg = coverage(gl)
+cvg = coverage(greenleaf)
+class(cvg)
+```
+
+The coverage is returned as a `SimpleRleList` object. Using `names` can get us the names of the elements of the list.
+
+```{r}
+names(cvg)
+```
+
+There is a name for each chromosome. Looking at the `chr21` entry:
+
+```{r}
+cvg$chr21
+```
+
+we see that each chromosome is represented as an `Rle`, short for run-length-encoding. Simply put, since along the chromosome there are many repeated values, we can recode the long vector as a set of (length: value) pairs. For example, if the first 9,410,000 base pairs have `0` coverage, we encode that as (9,410,000: 0). Doing that across the chromosome can very significantly reduce the memory use for genomic coverage. 
+
+The following little function, `plotCvgHist` can plot a histogram of the coverage for a chromosome. 
+
+
+```{r}
 plotCvgHist = function(cvg, chromosome) {
   library(ggplot2)
   cvgcounts = as.data.frame(table(cvg[[chromosome]]))
@@ -150,112 +205,107 @@ for(i in c('chr21', 'chr22')) {
 
 ## Fragment Lengths
 
-```{r}
-gl_nf = gl[mcols(first(gl))$isize<100]
+The first ATAC-Seq manuscript [@Buenrostro2013-dz] highlighted the relationship between fragment length and nucleosomes (see Figure \@ref{fig:flgreenleaf}).
+
+```{r flgreenleaf, fig.cap="Relationship between fragment length and nucleosome number."}
+knitr::include_graphics('https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3959825/bin/nihms554473f2.jpg')
 ```
 
+Remember that we loaded the example BAM file with insert sizes (`isize`). We can use that "column" to examine the fragment lengths (another name for insert size). Also, note that the insert size for the `first` read and the `second` are the same (absolute value). Here, we will use `first`.
 
+```{r results='hide'}
+GenomicAlignments::first(greenleaf)
+mcols(GenomicAlignments::first(greenleaf))
+class(mcols(GenomicAlignments::first(greenleaf)))
+head(mcols(GenomicAlignments::first(greenleaf))$isize)
+fraglengths = abs(mcols(GenomicAlignments::first(greenleaf))$isize)
+```
 
-```{r eval = FALSE}
-dat = readGAlignmentPairs(system.file(package='AtacSeqWorkshop', 'extdata/ENCFF768UMR.bam'),
-                          param = ScanBamParam(mapqFilter = 1, 
-    flag = scanBamFlag(isPaired = TRUE, isProperPair = TRUE), what = c("mapq", "isize")))
-dat = readGAlignmentPairs('../inst/extdata/Sorted_ATAC_50K_2.bam',
-                          param = ScanBamParam(mapqFilter = 1, 
-    flag = scanBamFlag(isPaired = TRUE, isProperPair = TRUE), what = c("mapq", "isize")))
+We can plot the fragment length density (histogram) using the `density` function.
 
-insertSizes = abs(mcols(GenomicAlignments::first(gl1))$isize)
+```{r fraglength, fig.cap="Fragment length histogram. "}
+plot(density(fraglengths, bw=0.05), xlim=c(0,1000))
+```
+
+*Exercise*: Adjust the `xlim`, `bw`, and try `log="y"` in the plot to highlight features present in figure \ref{fig:flgreenleaf}.
+
+And for fun, the ggplot2 version:
+
+```{r}
 library(dplyr)
 library(ggplot2)
-fragLenPlot <- table(insertSizes) %>% data.frame %>% rename(InsertSize = insertSizes, 
+fragLenPlot <- table(fraglengths) %>% data.frame %>% rename(InsertSize = fraglengths, 
     Count = Freq) %>% mutate(InsertSize = as.numeric(as.vector(InsertSize)), 
     Count = as.numeric(as.vector(Count))) %>% ggplot(aes(x = InsertSize, y = Count)) + 
     geom_line()
 print(fragLenPlot + theme_bw() + lims(x=c(-1,250)))
 ```
 
+Knowing that the nucleosome-free regions will have insert sizes shorter than one nucleosome, we can isolate the read pairs that have that characteristic.
+
+```{r}
+gl_nf = greenleaf[mcols(GenomicAlignments::first(greenleaf))$isize<100]
+```
+
+And the mononucleosome reads will be between 187 and 250 base pairs for insert size/fragment length.
+
+```{r}
+gl_mn = greenleaf[mcols(GenomicAlignments::first(greenleaf))$isize>187 & 
+                  mcols(GenomicAlignments::first(greenleaf))$isize<250  ]
+```
+
+Finally, we expect nucleosome-free reads to be enriched near the TSS while mononucleosome reads should not be. We will use the `r Biocpkg('heatmaps')` package to take a look at these two sets of reads with respect to the tss of the human genome.
+
+```{r}
+library(TxDb.Hsapiens.UCSC.hg19.knownGene)
+proms = promoters(TxDb.Hsapiens.UCSC.hg19.knownGene, 250, 250)
+seqs = c('chr21','chr22')
+seqlevels(proms, pruning.mode='coarse') = seqs # only chromosome 21 and 22
+```
+
+Take a look at the `r Biocpkg('heatmaps')` package vignette to learn more about the heatmaps package capabilities.
+
+```{r fig.cap = "Enrichment of nucleosome free reads just upstream of the TSS."}
+library(heatmaps)
+gl_nf_hm = CoverageHeatmap(proms,coverage(gl_nf),coords=c(-250,250))
+label(gl_nf_hm) = "NucFree"
+scale(gl_nf_hm)=c(0,10)
+plotHeatmapMeta(gl_nf_hm)
+```
+
+```{r fig.cap = "Depletion of nucleosome free reads just upstream of the TSS."}
+gl_mn_hm = CoverageHeatmap(proms,coverage(gl_mn),coords=c(-250,250))
+label(gl_mn_hm) = "MonoNuc"
+scale(gl_mn_hm)=c(0,10)
+plotHeatmapMeta(gl_mn_hm)
+```
+
+```{r fig.cap = "Comparison of signals at TSS. Mononucleosome data on the left, nucleosome-free on the right."}
+plotHeatmapList(list(gl_mn_hm, gl_nf_hm))
+```
+
 
 # Viewing data in IGV
 
+Install IGV from [here](https://software.broadinstitute.org/software/igv/download).
+
+We export the greenleaf data as a BigWig file.
+
 ```{r exportBW}
 library(rtracklayer)
-export.bw(coverage(gl),'greenleaf.bw')
+export.bw(coverage(greenleaf),'greenleaf.bw')
 ```
 
-```{r}
-dat3 = readGAlignmentPairs('~/Downloads/ATAC_Workshop/ATAC_Data/ATAC_BAM_forCounting/Sorted_Hindbrain_day_12_1_Small_Paired.bam',
-                          param = ScanBamParam(mapqFilter = 1, 
-    flag = scanBamFlag(isPaired = TRUE, isProperPair = TRUE), what = c("mapq", "isize")))
-```
+*Exercise*: Open these data in the `hg19` genome browser and explore chromosomes 21 and 22.
+*Exercise*: Export the nucleosome-free portion of the data as a BigWig file and examine that in IGV.
 
-# Getting started
+# Additional work
 
-To enable the _Bioconductor_ style in your R Markdown vignette you need to include the following in the `DESCRIPTION` file:
+For those working extensively on ATAC-Seq, there is a great workflow/tutorial available from Thomas Carrol:
 
-    VignetteBuilder: knitr
-    Suggests: BiocStyle, knitr, rmarkdown
+https://rockefelleruniversity.github.io/RU_ATAC_Workshop.html
 
-
-# Style macros
-
-_BiocStyle_ introduces the following macros for referring to _R_ packages:
-
-* `r Biocpkg("IRanges")`, for _Bioconductor_ software, annotation and experiment data packages,
-* `r CRANpkg("data.table")`, for _R_ packages available on CRAN,
-* `r Githubpkg("rstudio/rmarkdown")`, for _R_ packages available on GitHub,
-* `r Rpackage("MyPkg")`, for _R_ packages that are _not_ available on _Bioconductor_, CRAN or GitHub.
-
-
-# Figures
-
-Assign captions to figures in the code chunk option `fig.cap` to automatically number them, and to be able to reference them, see Figure \@ref(fig:plot). The figure label is generated from the code chunk label by prefixing it with `fig:`.
-
-```{r plot, fig.cap="Regular figure. The first sentence of the figure caption is automatically emphasized to serve as figure title.", echo=FALSE}
-plot(cars)
-```
-
-Small and wide figures can be specified by `fig.small` and `fig.wide` code chunk options.
-
-```{r small, fig.cap="Small figure. A plot produced by a code chunk with option `fig.small = TRUE`.", fig.small=TRUE, echo=FALSE}
-plot(cars)
-```
-
-```{r wide, fig.cap="Wide figure. A plot produced by a code chunk with option `fig.wide = TRUE`.", fig.wide=TRUE, echo=FALSE}
-plot(cars)
-```
-
-
-# Equations
-
-To number and reference equations, put them in equation environments and assign labels to them, see Equation \@ref(eq:binom).
-
-\begin{equation}
-  f\left(k\right) = \binom{n}{k} p^k\left(1-p\right)^{n-k}
-  (\#eq:binom)
-\end{equation}
-
-
-# Tables
-
-Like figures, tables with captions will also be numbered and can be referenced, see Table \@ref(tab:table).
-
-Fruit   | Price
-------- | -----
-bananas | 1.2
-apples  | 1.0
-oranges | 2.5
-
-: (\#tab:table) A simple table. With caption.
-
-
-# Cross-references
-
-Apart from referencing figures (Section \@ref(figures)), tables (Section \@ref(tables)), and equations (Section \@ref(equations)), you can also use the same syntax to refer to sections by their default labels generated by pandoc.
-
-
-# Side notes
-
-Footnotes are displayed as side notes on the right margin^[this is a side note entered as a footnote], which has the advantage that they appear close to the place where they are defined.
+Feel free to work through it. In addition to the work above, there is also 
 
 
 # Session info {.unnumbered}
@@ -265,11 +315,6 @@ sessionInfo()
 ```
 
 # Appendix {.unnumbered}
-
-## IGV
-
-Download IGV for Mac, Windows, or Linux from [here]().
-
 
 ## MACS2
 
