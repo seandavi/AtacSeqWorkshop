@@ -1,0 +1,11 @@
+Package: AtacSeqWorkshop
+Type: Package
+Title: ATAC-Seq data analysis with Bioconductor
+Version: 0.1.1
+Author: Sean Davis, Thomas Carroll
+Maintainer: Sean Davis <seandavi@gmail.com>
+Description: This package contains subsets of real ATAC-Seq datasets and example
+  analysis and quality control using Bioconductor tools.
+License: MIT
+Encoding: UTF-8
+LazyData: true
