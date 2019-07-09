@@ -182,11 +182,11 @@ cvg$chr21
 
 we see that each chromosome is represented as an `Rle`, short for run-length-encoding. Simply put, since along the chromosome there are many repeated values, we can recode the long vector as a set of (length: value) pairs. For example, if the first 9,410,000 base pairs have `0` coverage, we encode that as (9,410,000: 0). Doing that across the chromosome can very significantly reduce the memory use for genomic coverage. 
 
-The following little function, `plotCvgHist` can plot a histogram of the coverage for a chromosome. 
+The following little function, `plotCvgHistByChrom` can plot a histogram of the coverage for a chromosome. 
 
 
 ```{r}
-plotCvgHist = function(cvg, chromosome) {
+plotCvgHistByChrom = function(cvg, chromosome) {
   library(ggplot2)
   cvgcounts = as.data.frame(table(cvg[[chromosome]]))
   cvgcounts[,1] = as.numeric(as.character(cvgcounts[,1]))
@@ -199,7 +199,7 @@ plotCvgHist = function(cvg, chromosome) {
     theme_bw() 
 }
 for(i in c('chr21', 'chr22')) {
-  print(plotCvgHist(cvg, i))
+  print(plotCvgHistByChrom(cvg, i))
 }
 ```
 
@@ -305,18 +305,18 @@ For those working extensively on ATAC-Seq, there is a great workflow/tutorial av
 
 https://rockefelleruniversity.github.io/RU_ATAC_Workshop.html
 
-Feel free to work through it. In addition to the work above, there is also 
+Feel free to work through it. In addition to the work above, there is also the `r Biocpkg('ATACseqQC')` package vignette that offers more than just QC. At least a couple more packages are available in _Bioconductor_.
 
 
-# Session info {.unnumbered}
+# Appendix {.unnumbered}
+
+## Session info {.unnumbered}
 
 ```{r sessionInfo, echo=FALSE}
 sessionInfo()
 ```
 
-# Appendix {.unnumbered}
-
-## MACS2
+## MACS2 {.unnumbered}
 
 The MACS2 package is a commonly-used package for calling peaks. Installation
 and other details are available[^macs].
