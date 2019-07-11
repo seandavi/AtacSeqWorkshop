@@ -49,3 +49,8 @@ An example for a 45-minute workshop:
 * Isolate nucleosome-free and mononucleosome regions from ATAC-seq data.
 * Install and use IGV to visualize data in genomic context.
 * Create profile plots using the heatmaps package.
+
+# Thanks
+
+To Thomas Carroll at Rockefeller University for this larger workshop that served as inspiration: https://github.com/RockefellerUniversity/RU_ATACseq
+
