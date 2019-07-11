@@ -6,7 +6,7 @@ BiocManager::install('seandavi/AtacSeqWorkshop', build = TRUE, build_opts = "")
 browseVignettes(package='AtacSeqWorkshop')
 ```
 
-## Pre-requisites {.unnumbered}
+## Pre-requisites 
 
 This workshop assumes:
 
@@ -15,7 +15,7 @@ This workshop assumes:
 * Familiarity with the `r Biocpkg('GenomicRanges')` package and range manipulations
 * Familiarity with BAM files and their contents
 
-## Participation {.unnumbered}
+## Participation 
 
 After a very brief review of ATAC-Seq and chromatin accessibility, students will work 
 independently to follow this workflow. Additional materials are provided as links at
@@ -23,7 +23,7 @@ the end of the workshop for those wanting deeper exposure. Additional materials
 include alignment from FASTQ files and peak calling.
 
 
-## Time outline {.unnumbered}
+## Time outline 
 
 An example for a 45-minute workshop:
 
@@ -34,7 +34,7 @@ An example for a 45-minute workshop:
 | Additional exercises (optional, external) | up to 12 hours   |
 
 
-## Learning goals {.unnumbered}
+## Learning goals 
 
 * Describe how to import sequence alignments in BAM format into R
 * Relate fragment size to genomic characteristics such as nucleosome occupancy and open chromatin.
@@ -42,7 +42,7 @@ An example for a 45-minute workshop:
 * Gain familiarity with the IGV genome browser and examining data in genomic context.
 * Visualize summaries of genomic signal using profile plots and heatmaps.
 
-## Learning objectives {.unnumbered}
+## Learning objectives 
 
 * Load and save genomic data in BAM and BigWig formats [GenomicAlignments and rtracklayer].
 * Perform basic QC plots from ATAC-Seq data.

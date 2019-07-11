@@ -6,7 +6,8 @@ author:
   email: seandavi@gmail.com
 package: AtacSeqWorkshop
 output:
-  BiocStyle::html_document
+  - BiocStyle::html_document
+  - BiocStyle::pdf_document
 abstract: |
   This workshop employs Bioconductor GenomicRanges and GenomicFeatures infrastructure to perform basic import of aligned reads followed by quality control of an ATAC-Seq dataset. It will also examine how to use fragment length (insert size) to isolate chromatin compartments of interest such as putative nucleosome-free regions. Moving on to a multi-sample analysis, peak regions (called separately) will inform similarities between samples. Statistical identification of differential accessibility will provide a second measure of sample differences and serve as potential regions of interest for enrichment analysis and biological hypothesis generation. Data visualization throughout using the Integrated Genome Viewer (IGV) can make findings more intuitive, so students are encouraged to export datasets from R in formats compatible with IGV.
 bibliography: atac.bib

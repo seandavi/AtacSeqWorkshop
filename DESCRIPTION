@@ -2,8 +2,10 @@ Package: AtacSeqWorkshop
 Type: Package
 Title: ATAC-Seq data analysis with Bioconductor
 Version: 0.1.1
-Author: Sean Davis, Thomas Carroll
-Maintainer: Sean Davis <seandavi@gmail.com>
+Authors@R: c(person("Sean", "Davis", email = "seandavi@gmail.com",
+                  role = c("aut", "cre")),
+            person("Thomas", "Carroll", email = "thomas.carroll@rockefeller.edu",
+                  role = c("ctb")))
 Description: This package contains subsets of real ATAC-Seq datasets and example
   analysis and quality control using Bioconductor tools.
 Depends:
@@ -15,6 +17,8 @@ Depends:
 Suggests:
     BiocStyle
 License: MIT
+URL: https://github.com/seandavi/AtacSeqWorkshop
+BugReports: https://github.com/seandavi/AtacSeqWorkshop/issues/new
 Encoding: UTF-8
 LazyData: true
 VignetteBuilder: knitr, rmarkdown

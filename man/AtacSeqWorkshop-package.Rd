@@ -9,4 +9,21 @@
 This package contains subsets of real ATAC-Seq datasets and example
   analysis and quality control using Bioconductor tools.
 }
+\seealso{
+Useful links:
+\itemize{
+  \item \url{https://github.com/seandavi/AtacSeqWorkshop}
+  \item Report bugs at \url{https://github.com/seandavi/AtacSeqWorkshop/issues/new}
+}
+
+}
+\author{
+\strong{Maintainer}: Sean Davis \email{seandavi@gmail.com}
+
+Other contributors:
+\itemize{
+  \item Thomas Carroll \email{thomas.carroll@rockefeller.edu} [contributor]
+}
+
+}
 \keyword{internal}
